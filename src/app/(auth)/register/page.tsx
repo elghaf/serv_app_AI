@@ -49,99 +49,93 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-violet-500/5 via-transparent to-indigo-500/5">
-      <div className="w-full max-w-6xl mx-auto bg-white/5 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/10 p-8">
-        <div className="grid lg:grid-cols-2 gap-8 items-center">
-          {/* Left side - Branding */}
-          <div className="hidden lg:flex flex-col justify-center p-8 text-center">
-            <div className="space-y-6">
-              <div className="bg-gradient-to-r from-violet-500 to-indigo-500 text-white p-3 rounded-2xl inline-block mx-auto">
-                <UserPlus className="w-10 h-10" />
-              </div>
-              <h2 className="text-4xl font-bold bg-gradient-to-r from-violet-500 to-indigo-500 bg-clip-text text-transparent">
-                Join AI Platform
-              </h2>
-              <p className="text-muted-foreground text-lg">
-                Start your journey with cutting-edge AI technology
-              </p>
-            </div>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      <div className="w-full max-w-[480px] mx-auto bg-white rounded-xl shadow-lg border border-slate-100 p-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="bg-slate-900 text-white p-4 rounded-xl inline-block mx-auto mb-6">
+            <UserPlus className="w-8 h-8" />
           </div>
-
-          {/* Right side - Form */}
-          <div className="lg:p-8">
-            <Card className="border-white/5 bg-white/5 backdrop-blur-sm">
-              <form onSubmit={handleSubmit}>
-                <CardContent className="pt-8 pb-6">
-                  <div className="space-y-5">
-                    <div className="space-y-2">
-                      <Label htmlFor="name" className="text-sm font-medium">Full name</Label>
-                      <Input
-                        id="name"
-                        name="name"
-                        placeholder="John Doe"
-                        required
-                        disabled={isLoading}
-                        className="h-12 text-base bg-white/5 border-white/10 focus-visible:ring-violet-500"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email" className="text-sm font-medium">Email address</Label>
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        placeholder="name@example.com"
-                        required
-                        disabled={isLoading}
-                        className="h-12 text-base bg-white/5 border-white/10 focus-visible:ring-violet-500"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="password" className="text-sm font-medium">Password</Label>
-                      <Input
-                        id="password"
-                        name="password"
-                        type="password"
-                        placeholder="Create a strong password"
-                        required
-                        disabled={isLoading}
-                        className="h-12 text-base bg-white/5 border-white/10 focus-visible:ring-violet-500"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Must be at least 8 characters long
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex flex-col space-y-5 pb-8">
-                  <Button 
-                    type="submit" 
-                    className="w-full h-12 text-base font-medium bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-600 hover:to-indigo-600"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <span className="flex items-center gap-2">
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                        Creating account...
-                      </span>
-                    ) : (
-                      'Create account'
-                    )}
-                  </Button>
-                  <div className="flex items-center justify-center space-x-2">
-                    <span className="text-muted-foreground">Already have an account?</span>
-                    <Link 
-                      href="/login" 
-                      className="text-violet-500 hover:text-violet-400 font-medium transition-colors"
-                    >
-                      Sign in
-                    </Link>
-                  </div>
-                </CardFooter>
-              </form>
-            </Card>
-          </div>
+          <h1 className="text-4xl font-bold text-slate-900 mb-3">
+            Join AI Platform
+          </h1>
+          <p className="text-lg text-slate-600">
+            Start your journey with cutting-edge AI technology
+          </p>
         </div>
+
+        {/* Form */}
+        <Card className="border border-slate-200 bg-white">
+          <form onSubmit={handleSubmit}>
+            <CardContent className="pt-8 pb-6">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-sm font-medium text-slate-900">Full name</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    placeholder="John Doe"
+                    required
+                    disabled={isLoading}
+                    className="h-11 text-base bg-white border-slate-200 focus-visible:ring-slate-900"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-medium text-slate-900">Email address</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="name@example.com"
+                    required
+                    disabled={isLoading}
+                    className="h-11 text-base bg-white border-slate-200 focus-visible:ring-slate-900"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-sm font-medium text-slate-900">Password</Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="Create a strong password"
+                    required
+                    disabled={isLoading}
+                    className="h-11 text-base bg-white border-slate-200 focus-visible:ring-slate-900"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Must be at least 8 characters long
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="flex flex-col space-y-4 pb-8">
+              <Button 
+                type="submit" 
+                className="w-full h-11 text-base font-medium bg-slate-900 hover:bg-slate-800 text-white transition-colors"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Creating account...
+                  </span>
+                ) : (
+                  'Create account'
+                )}
+              </Button>
+              <div className="flex items-center justify-center space-x-2">
+                <span className="text-sm text-slate-600">Already have an account?</span>
+                <Link 
+                  href="/login" 
+                  className="text-sm text-slate-900 hover:text-slate-700 font-medium transition-colors"
+                >
+                  Sign in
+                </Link>
+              </div>
+            </CardFooter>
+          </form>
+        </Card>
       </div>
     </div>
   )
