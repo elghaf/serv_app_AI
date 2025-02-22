@@ -1,13 +1,10 @@
 'use client';
 
-import { AlertCircle, CheckCircle2, WifiOff, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { API_CONFIG } from '@/lib/api-config';
-import { useState } from 'react';
-import { toast } from 'sonner';
+import { RefreshCw } from 'lucide-react';
 
-interface StatusProps {
+interface StatusMonitorProps {
   isBackendConnected: boolean;
   isStreaming: boolean;
   lastFrameTime: Date | null;
@@ -16,90 +13,61 @@ interface StatusProps {
     detections: number;
     errors: number;
   };
-  onRefresh?: () => void;
+  onRefresh: () => void;
 }
 
-export function StatusMonitor({ 
-  isBackendConnected, 
-  isStreaming, 
-  lastFrameTime, 
+export function StatusMonitor({
+  isBackendConnected,
+  isStreaming,
+  lastFrameTime,
   detectionStats,
-  onRefresh 
-}: StatusProps) {
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.HEALTH}`);
-      if (!response.ok) {
-        throw new Error('Health check failed');
-      }
-      onRefresh?.();
-      toast.success('Status refreshed');
-    } catch (error) {
-      toast.error('Failed to refresh status');
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
+  onRefresh,
+}: StatusMonitorProps) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>System Monitor</CardTitle>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className={isRefreshing ? 'animate-spin' : ''}
-        >
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">System Status</CardTitle>
+        <Button variant="ghost" size="icon" onClick={onRefresh}>
           <RefreshCw className="h-4 w-4" />
         </Button>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Backend Connection</span>
-            <div className="flex items-center">
-              {isBackendConnected ? (
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
-              ) : (
-                <WifiOff className="w-4 h-4 text-red-500" />
-              )}
-              <span className={`ml-2 text-sm ${isBackendConnected ? 'text-green-500' : 'text-red-500'}`}>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Backend Connection</span>
+              <span className={`text-sm font-medium ${isBackendConnected ? 'text-green-500' : 'text-red-500'}`}>
                 {isBackendConnected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Streaming Status</span>
-            <span className={`text-sm ${isStreaming ? 'text-green-500' : 'text-gray-500'}`}>
-              {isStreaming ? 'Active' : 'Inactive'}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Last Frame Processed</span>
-            <span className="text-sm text-gray-500">
-              {lastFrameTime ? new Date(lastFrameTime).toLocaleTimeString() : 'N/A'}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4 mt-4">
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <div className="text-xl font-semibold">{detectionStats.totalFrames}</div>
-              <div className="text-xs text-gray-500">Frames Processed</div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Streaming Status</span>
+              <span className={`text-sm font-medium ${isStreaming ? 'text-green-500' : 'text-yellow-500'}`}>
+                {isStreaming ? 'Active' : 'Inactive'}
+              </span>
             </div>
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <div className="text-xl font-semibold">{detectionStats.detections}</div>
-              <div className="text-xs text-gray-500">Detections</div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Last Frame</span>
+              <span className="text-sm">
+                {lastFrameTime ? new Date(lastFrameTime).toLocaleTimeString() : 'N/A'}
+              </span>
             </div>
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <div className="text-xl font-semibold">{detectionStats.errors}</div>
-              <div className="text-xs text-gray-500">Errors</div>
+          </div>
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">Detection Statistics</h4>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="flex flex-col items-center p-2 bg-secondary/10 rounded-lg">
+                <span className="text-xs text-muted-foreground">Frames</span>
+                <span className="text-lg font-bold">{detectionStats.totalFrames}</span>
+              </div>
+              <div className="flex flex-col items-center p-2 bg-secondary/10 rounded-lg">
+                <span className="text-xs text-muted-foreground">Detections</span>
+                <span className="text-lg font-bold">{detectionStats.detections}</span>
+              </div>
+              <div className="flex flex-col items-center p-2 bg-secondary/10 rounded-lg">
+                <span className="text-xs text-muted-foreground">Errors</span>
+                <span className="text-lg font-bold">{detectionStats.errors}</span>
+              </div>
             </div>
           </div>
         </div>

@@ -22,11 +22,26 @@ export function DashboardHeader() {
 
   const handleSignOut = async () => {
     try {
+      // First, call our custom logout endpoint to clean up Prisma session
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to logout from backend');
+      }
+
+      // Then sign out from NextAuth
       await signOut({ redirect: false });
+      
       toast.success('Signed out successfully');
       router.push('/login');
       router.refresh();
     } catch (error) {
+      console.error('Logout error:', error);
       toast.error('Error signing out');
     }
   };
