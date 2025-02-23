@@ -1,14 +1,14 @@
-import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { toast } from 'sonner';
+import { auth } from '@clerk/nextjs/server'
+import { redirect } from 'next/navigation'
 
 export default async function Home() {
-  const session = await getServerSession(authOptions);
+  const { userId } = await auth()
 
-  if (!session) {
-    redirect('/login');
+  // If user is authenticated, always redirect to dashboard
+  if (userId) {
+    redirect('/dashboard')
   }
 
-  redirect('/dashboard');
+  // If not authenticated, redirect to sign in
+  redirect('/sign-in')
 }

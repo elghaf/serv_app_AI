@@ -1,51 +1,30 @@
-import { getServerSession } from "next-auth/next";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
-import { prisma } from '@/lib/prisma';
+import { SourceSelector } from '@/components/dashboard/source-selector';
 import { DashboardHeader } from '@/components/dashboard/header';
 import { MainContent } from '@/components/dashboard/main-content';
 import { Sidebar } from '@/components/dashboard/sidebar';
 
-export const dynamic = 'force-dynamic';
-
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
+  const { userId } = await auth();
 
-  if (!session?.user) {
-    redirect('/login');
-  }
-
-  // Fetch user data with Prisma
-  const user = await prisma.user.findUnique({
-    where: {
-      email: session.user?.email as string,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      createdAt: true,
-      // Add any other fields you need
-    },
-  });
-
-  if (!user) {
-    redirect('/login');
+  if (!userId) {
+    redirect('/sign-in');
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <DashboardHeader />
-      <main className="flex-1 mx-auto max-w-8xl w-full px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-12 gap-8">
-          <div className="col-span-12 lg:col-span-9">
-            <MainContent user={user} />
+    <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <DashboardHeader />
+        <main className="flex-1 overflow-y-auto p-6">
+          <div className="mb-4">
+            <SourceSelector />
           </div>
-          <div className="col-span-12 lg:col-span-3">
-            <Sidebar />
-          </div>
-        </div>
-      </main>
+          <MainContent user={userId} />
+        </main>
+      </div>
     </div>
   );
 }
+

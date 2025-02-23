@@ -9,110 +9,99 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { toast } from "sonner"
 import Link from 'next/link'
 import { UserPlus } from 'lucide-react'
+import { useSignUp } from "@clerk/nextjs"
 
 export default function Register() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const { signUp, isLoaded } = useSignUp()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
     
     const formData = new FormData(e.currentTarget)
-    const data = {
-      email: formData.get('email'),
-      password: formData.get('password'),
-      name: formData.get('name'),
-    }
+    const email = formData.get('email') as string
+    const password = formData.get('password') as string
     
     try {
-      const res = await fetch('/api/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      })
-
-      if (!res.ok) {
-        const { error } = await res.json()
-        throw new Error(error)
+      if (!isLoaded) {
+        toast.error('Authentication system is not ready')
+        return
       }
 
-      toast.success('Account created successfully!')
-      router.push('/login')
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Something went wrong')
+      // First, create the sign up
+      const result = await signUp.create({
+        emailAddress: email,
+        password,
+      })
+
+      // Add this line after creating the sign up
+      await result.prepareEmailAddressVerification({ strategy: "email_code" })
+
+      console.log('Sign up status:', result.status) // Debug log
+
+      if (result.status === "missing_requirements") {
+        toast.success('Please check your email for verification code')
+        // You might want to create a verification page and redirect to it
+        router.push('/verify-email')
+      } else if (result.status === "complete") {
+        toast.success('Account created successfully!')
+        router.push('/login')
+      } else {
+        toast.warning(`Status: ${result.status}. Please complete the sign up process.`)
+      }
+
+    } catch (error: any) {
+      console.error('Sign up error:', error) // Debug log
+      const errorMessage = error?.errors?.[0]?.message || 'Failed to create account'
+      toast.error(errorMessage)
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-50 via-white to-slate-50">
-      <div className="w-full max-w-[480px] mx-auto bg-white rounded-xl shadow-lg border border-slate-100 p-8">
-        {/* Header */}
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="w-full max-w-md mx-auto">
         <div className="text-center mb-8">
-          <div className="bg-slate-900 text-white p-4 rounded-xl inline-block mx-auto mb-6">
+          <div className="bg-gradient-to-r from-violet-500 to-indigo-500 text-white p-3 rounded-2xl inline-block">
             <UserPlus className="w-8 h-8" />
           </div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-3">
-            Join AI Platform
-          </h1>
-          <p className="text-lg text-slate-600">
-            Start your journey with cutting-edge AI technology
-          </p>
+          <h2 className="mt-4 text-3xl font-bold">Create Account</h2>
+          <p className="text-muted-foreground mt-2">Sign up for a new account</p>
         </div>
 
-        {/* Form */}
-        <Card className="border border-slate-200 bg-white">
+        <Card>
           <form onSubmit={handleSubmit}>
-            <CardContent className="pt-8 pb-6">
-              <div className="space-y-6">
+            <CardContent className="pt-6">
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="text-sm font-medium text-slate-900">Full name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    placeholder="John Doe"
-                    required
-                    disabled={isLoading}
-                    className="h-11 text-base bg-white border-slate-200 focus-visible:ring-slate-900"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-medium text-slate-900">Email address</Label>
+                  <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     name="email"
                     type="email"
-                    placeholder="name@example.com"
                     required
                     disabled={isLoading}
-                    className="h-11 text-base bg-white border-slate-200 focus-visible:ring-slate-900"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-sm font-medium text-slate-900">Password</Label>
+                  <Label htmlFor="password">Password</Label>
                   <Input
                     id="password"
                     name="password"
                     type="password"
-                    placeholder="Create a strong password"
                     required
                     disabled={isLoading}
-                    className="h-11 text-base bg-white border-slate-200 focus-visible:ring-slate-900"
                   />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Must be at least 8 characters long
-                  </p>
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col space-y-4 pb-8">
+            <CardFooter className="flex flex-col space-y-4">
               <Button 
                 type="submit" 
-                className="w-full h-11 text-base font-medium bg-slate-900 hover:bg-slate-800 text-white transition-colors"
+                className="w-full"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -124,11 +113,11 @@ export default function Register() {
                   'Create account'
                 )}
               </Button>
-              <div className="flex items-center justify-center space-x-2">
-                <span className="text-sm text-slate-600">Already have an account?</span>
+              <div className="text-center text-sm">
+                <span className="text-muted-foreground">Already have an account? </span>
                 <Link 
                   href="/login" 
-                  className="text-sm text-slate-900 hover:text-slate-700 font-medium transition-colors"
+                  className="text-violet-500 hover:text-violet-400 font-medium"
                 >
                   Sign in
                 </Link>

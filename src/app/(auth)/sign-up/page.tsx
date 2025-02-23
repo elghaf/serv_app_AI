@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,14 +8,21 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { toast } from "sonner"
 import Link from 'next/link'
-import { LockKeyhole } from 'lucide-react'
-import { useSignIn, useAuth } from "@clerk/nextjs"
+import { UserPlus } from 'lucide-react'
+import { useSignUp } from "@clerk/nextjs"
+import { useAuth } from '@clerk/nextjs'
 
-export default function Login() {
+export default function SignUp() {
   const router = useRouter()
+  const { isSignedIn, isLoaded } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
-  const { signIn, isLoaded } = useSignIn()
-  const { signOut, isSignedIn } = useAuth()
+  const { signUp } = useSignUp()
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.push('/dashboard')
+    }
+  }, [isLoaded, isSignedIn, router])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -31,32 +38,25 @@ export default function Login() {
         return
       }
 
-      // If already signed in, sign out first
-      if (isSignedIn) {
-        await signOut()
-      }
-
-      const result = await signIn.create({
-        identifier: email,
+      const result = await signUp.create({
+        emailAddress: email,
         password,
       })
 
-      console.log('Sign in status:', result.status)
+      await result.prepareEmailAddressVerification({ strategy: "email_code" })
 
-      if (result.status === "complete") {
-        toast.success('Welcome back!')
+      if (result.status === "missing_requirements") {
+        toast.success('Please check your email for verification code')
+        router.push('/verify-email')
+      } else if (result.status === "complete") {
+        toast.success('Account created successfully!')
         router.push('/dashboard')
       } else {
-        toast.warning(`Status: ${result.status}. Please complete the sign in process.`)
+        toast.warning(`Status: ${result.status}. Please complete the sign up process.`)
       }
     } catch (error: any) {
-      console.error('Sign in error:', error)
-      if (error.message?.includes('single session mode')) {
-        toast.error('Please sign out of your current account first')
-      } else {
-        const errorMessage = error?.errors?.[0]?.message || 'Invalid credentials'
-        toast.error(errorMessage)
-      }
+      const errorMessage = error?.errors?.[0]?.message || 'Failed to create account'
+      toast.error(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -65,24 +65,12 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md mx-auto">
-        {isSignedIn && (
-          <div className="text-center mb-4">
-            <Button 
-              variant="outline" 
-              onClick={() => signOut()}
-              className="mb-4"
-            >
-              Sign out of current account
-            </Button>
-          </div>
-        )}
-
         <div className="text-center mb-8">
           <div className="bg-gradient-to-r from-violet-500 to-indigo-500 text-white p-3 rounded-2xl inline-block">
-            <LockKeyhole className="w-8 h-8" />
+            <UserPlus className="w-8 h-8" />
           </div>
-          <h2 className="mt-4 text-3xl font-bold">Welcome Back</h2>
-          <p className="text-muted-foreground mt-2">Sign in to your account</p>
+          <h2 className="mt-4 text-3xl font-bold">Create Account</h2>
+          <p className="text-muted-foreground mt-2">Sign up for a new account</p>
         </div>
 
         <Card>
@@ -120,19 +108,19 @@ export default function Login() {
                 {isLoading ? (
                   <span className="flex items-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    Signing in...
+                    Creating account...
                   </span>
                 ) : (
-                  'Sign in'
+                  'Create account'
                 )}
               </Button>
               <div className="text-center text-sm">
-                <span className="text-muted-foreground">Don't have an account? </span>
+                <span className="text-muted-foreground">Already have an account? </span>
                 <Link 
-                  href="/register" 
+                  href="/sign-in" 
                   className="text-violet-500 hover:text-violet-400 font-medium"
                 >
-                  Create account
+                  Sign in
                 </Link>
               </div>
             </CardFooter>
@@ -141,4 +129,4 @@ export default function Login() {
       </div>
     </div>
   )
-}
+} 

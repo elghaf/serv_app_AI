@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,11 +11,17 @@ import Link from 'next/link'
 import { LockKeyhole } from 'lucide-react'
 import { useSignIn, useAuth } from "@clerk/nextjs"
 
-export default function Login() {
+export default function SignIn() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const { signIn, isLoaded } = useSignIn()
-  const { signOut, isSignedIn } = useAuth()
+  const { isSignedIn } = useAuth()
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.push('/dashboard')
+    }
+  }, [isLoaded, isSignedIn, router])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -31,17 +37,10 @@ export default function Login() {
         return
       }
 
-      // If already signed in, sign out first
-      if (isSignedIn) {
-        await signOut()
-      }
-
       const result = await signIn.create({
         identifier: email,
         password,
       })
-
-      console.log('Sign in status:', result.status)
 
       if (result.status === "complete") {
         toast.success('Welcome back!')
@@ -50,13 +49,8 @@ export default function Login() {
         toast.warning(`Status: ${result.status}. Please complete the sign in process.`)
       }
     } catch (error: any) {
-      console.error('Sign in error:', error)
-      if (error.message?.includes('single session mode')) {
-        toast.error('Please sign out of your current account first')
-      } else {
-        const errorMessage = error?.errors?.[0]?.message || 'Invalid credentials'
-        toast.error(errorMessage)
-      }
+      const errorMessage = error?.errors?.[0]?.message || 'Invalid credentials'
+      toast.error(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -65,18 +59,6 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md mx-auto">
-        {isSignedIn && (
-          <div className="text-center mb-4">
-            <Button 
-              variant="outline" 
-              onClick={() => signOut()}
-              className="mb-4"
-            >
-              Sign out of current account
-            </Button>
-          </div>
-        )}
-
         <div className="text-center mb-8">
           <div className="bg-gradient-to-r from-violet-500 to-indigo-500 text-white p-3 rounded-2xl inline-block">
             <LockKeyhole className="w-8 h-8" />
@@ -129,7 +111,7 @@ export default function Login() {
               <div className="text-center text-sm">
                 <span className="text-muted-foreground">Don't have an account? </span>
                 <Link 
-                  href="/register" 
+                  href="/sign-up" 
                   className="text-violet-500 hover:text-violet-400 font-medium"
                 >
                   Create account
@@ -141,4 +123,4 @@ export default function Login() {
       </div>
     </div>
   )
-}
+} 

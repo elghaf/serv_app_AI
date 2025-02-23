@@ -1,32 +1,23 @@
-import './globals.css';
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import { Toaster } from '@/components/ui/sonner';
-import { NextAuthProvider } from '@/components/providers/next-auth-provider';
-import { ReactQueryProvider } from '@/components/providers/react-query-provider';
+import { ClerkProvider } from '@clerk/nextjs'
+import '@/styles/globals.css'
+import { Inter } from 'next/font/google'
+import { Toaster } from 'sonner'
 
-const inter = Inter({ subsets: ['latin'] });
-
-export const metadata: Metadata = {
-  title: 'Video Surveillance Dashboard',
-  description: 'Modern video surveillance system dashboard',
-};
+const inter = Inter({ subsets: ['latin'] })
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <NextAuthProvider>
-          <ReactQueryProvider>
-            {children}
-            <Toaster />
-          </ReactQueryProvider>
-        </NextAuthProvider>
-      </body>
-    </html>
-  );
+    <ClerkProvider>
+      <html lang="en">
+        <body className={inter.className}>
+          {children}
+          <Toaster position="top-center" richColors />
+        </body>
+      </html>
+    </ClerkProvider>
+  )
 }

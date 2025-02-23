@@ -1,8 +1,9 @@
 import uuid
-from fastapi import APIRouter, HTTPException, File, UploadFile, Depends
-from app.api.predict_fire.schema import Detection, PredictFireSchema
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from app.db.database import get_db
+from app.utils.auth import get_current_user
+from app.api.share_schema import DetectionResponse
 from datetime import datetime
 from ultralytics import YOLO
 import logging
@@ -38,11 +39,11 @@ def generate_random_file_name(filename: str) -> str:
     return random_file_name
 
 
-@router.post("/predict_fire", response_model=PredictFireSchema)
+@router.post("/predict_fire", response_model=DetectionResponse)
 async def predict_fire(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    # current_user=Depends(get_current_user),  # get current user info
+    current_user: int = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     logger.info("--------------------------------")
     logger.info(f"Received file: {file.filename}")

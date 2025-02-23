@@ -9,12 +9,12 @@ import { Analytics } from '@/components/dashboard/analytics';
 import { StatusMonitor } from '@/components/dashboard/status-monitor';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-console.log('BACKEND_URL:', BACKEND_URL);
+interface MainContentProps {
+  user: string;
+}
 
-export function MainContent({ user }) {
+export function MainContent({ user }: MainContentProps) {
   const [selectedCamera, setSelectedCamera] = useState('camera-1');
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>("");
@@ -86,7 +86,7 @@ export function MainContent({ user }) {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/predict_fire`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${user.token}`,
+          'Authorization': `Bearer ${user}`,
         },
         body: formData,
       });
@@ -282,7 +282,7 @@ export function MainContent({ user }) {
 
   const checkBackendConnection = async () => {
     try {
-      console.log('Checking backend connection at:', BACKEND_URL);
+      console.log('Checking backend connection at:', process.env.NEXT_PUBLIC_BACKEND_URL);
       setIsCheckingConnection(true);
       
       const url = 'http://localhost:8000/health';
@@ -291,7 +291,7 @@ export function MainContent({ user }) {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${user.token}`,
+          'Authorization': `Bearer ${user}`,
         },
       });
       

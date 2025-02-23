@@ -2,7 +2,7 @@
 
 import { Bell, Search, Menu } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { signOut, useSession } from 'next-auth/react';
+import { useUser, useClerk } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -18,28 +18,14 @@ import { toast } from 'sonner';
 
 export function DashboardHeader() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { user } = useUser();
+  const { signOut } = useClerk();
 
   const handleSignOut = async () => {
     try {
-      // First, call our custom logout endpoint to clean up Prisma session
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to logout from backend');
-      }
-
-      // Then sign out from NextAuth
-      await signOut({ redirect: false });
-      
+      await signOut();
       toast.success('Signed out successfully');
-      router.push('/login');
-      router.refresh();
+      router.push('/sign-in');
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('Error signing out');
@@ -71,11 +57,11 @@ export function DashboardHeader() {
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
                     <AvatarImage
-                      src={session?.user?.image || ''}
-                      alt={session?.user?.name || ''}
+                      src={user?.imageUrl || ''}
+                      alt={user?.fullName || ''}
                     />
                     <AvatarFallback>
-                      {session?.user?.name?.charAt(0) || 'U'}
+                      {user?.firstName?.[0] || 'U'}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
@@ -84,10 +70,10 @@ export function DashboardHeader() {
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      {session?.user?.name}
+                      {user?.fullName}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {session?.user?.email}
+                      {user?.primaryEmailAddress?.emailAddress}
                     </p>
                   </div>
                 </DropdownMenuLabel>
