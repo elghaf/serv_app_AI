@@ -57,15 +57,40 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# Configure CORS
+# Configure CORS - allow both localhost and 127.0.0.1
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Frontend URLs
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+        "Clerk-Authorization-Token",
+    ],
 )
 
+# Add a health check endpoint that explicitly sets CORS headers
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import Response
+
+@app.get("/health")
+async def health_check():
+    return JSONResponse(
+        content={"status": "ok"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept"
+        }
+    )
 
 api_dir = Path(__file__).parent / "api"
 

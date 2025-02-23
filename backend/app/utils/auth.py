@@ -1,81 +1,80 @@
-from fastapi import Depends, HTTPException, Header
+from fastapi import Depends, HTTPException, Header, Request
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.db.models.session import Session as SessionModel
-from datetime import datetime
-import pytz
+from typing import Optional
+import os
+from dotenv import load_dotenv
+import requests
 import logging
+import jwt
+from jwt import PyJWKClient
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Load environment variables
+load_dotenv()
+
+CLERK_SECRET_KEY = os.getenv('CLERK_SECRET_KEY', 'sk_test_iNAoYJBMRBwqFccOEofZgobWLSpVwxpeIqIV7gLyl9')
+CLERK_JWKS_URL = "https://liberal-clam-30.clerk.accounts.dev/.well-known/jwks.json"
+
+# Initialize the PyJWKClient
+jwks_client = PyJWKClient(CLERK_JWKS_URL)
+
 async def get_current_user(
-    authorization: str = Header(None),
+    request: Request,
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
-):
-    logger.info("Starting authentication check")
-    
+) -> dict:
     if not authorization:
-        logger.error("No authorization header found")
-        raise HTTPException(
-            status_code=401,
-            detail="Authorization header missing"
-        )
+        logger.error("No authorization header provided")
+        raise HTTPException(status_code=401, detail="No authorization header")
 
     try:
-        logger.info(f"Authorization header received: {authorization[:20]}...")
-        scheme, token = authorization.split()
-        
-        if scheme.lower() != 'bearer':
-            logger.error(f"Invalid auth scheme: {scheme}")
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid authentication scheme"
-            )
-        
-        if not token:
-            logger.error("Token is empty")
-            raise HTTPException(
-                status_code=401,
-                detail="Token is missing"
-            )
-        
-        logger.info(f"Looking up session with token: {token[:8]}...")
-        session = db.query(SessionModel).filter(SessionModel.id == token).first()
-        
-        if not session:
-            logger.error(f"No session found for token: {token[:8]}...")
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid or expired token"
-            )
+        # Extract token from Bearer header
+        token = authorization.replace("Bearer ", "")
+        logger.info(f"Processing token: {token[:10]}...")
+
+        try:
+            # Get the signing key
+            signing_key = jwks_client.get_signing_key_from_jwt(token)
             
-        # Check if session has expired
-        current_time = datetime.now(pytz.UTC)
-        if session.expires_at < current_time:
-            logger.error(f"Session expired at {session.expires_at}, current time: {current_time}")
-            db.delete(session)
-            db.commit()
-            raise HTTPException(
-                status_code=401,
-                detail="Session expired"
+            # Verify and decode the token with minimal requirements
+            payload = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["RS256"],
+                options={
+                    "verify_aud": False,  # Don't verify audience
+                    "verify_exp": True,   # Do verify expiration
+                    "verify_iss": True,   # Do verify issuer
+                },
+                issuer="https://liberal-clam-30.clerk.accounts.dev"
             )
-            
-        logger.info(f"Authentication successful for user_id: {session.user_id}")
-        # Update last accessed time
-        session.last_accessed_at = current_time
-        db.commit()
-        
-        return session.user_id
-        
-    except ValueError as e:
-        logger.error(f"ValueError in auth: {str(e)}")
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid token format"
-        )
+
+            # Extract user information from the token
+            user_data = {
+                "user_id": payload.get("sub"),
+                "session_id": payload.get("sid"),
+                "issued_at": payload.get("iat"),
+                "expires_at": payload.get("exp")
+            }
+
+            logger.info(f"Successfully verified token for user: {user_data['user_id']}")
+            return user_data
+
+        except jwt.InvalidTokenError as e:
+            logger.error(f"Token validation failed: {str(e)}")
+            raise HTTPException(status_code=401, detail="Invalid token")
+
     except Exception as e:
-        logger.error(f"Unexpected error in auth: {str(e)}")
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authentication credentials"
-        )
+        logger.error(f"Authentication error: {str(e)}")
+        raise HTTPException(status_code=401, detail=str(e))
+
+
+
+
+
+
+

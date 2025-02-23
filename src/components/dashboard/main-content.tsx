@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Settings, Video, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,12 +9,14 @@ import { Analytics } from '@/components/dashboard/analytics';
 import { StatusMonitor } from '@/components/dashboard/status-monitor';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@clerk/nextjs';
 
 interface MainContentProps {
-  user: string;
+  user: User | null;
 }
 
-export function MainContent({ user }: MainContentProps) {
+const MainContent: React.FC<MainContentProps> = ({ user }) => {
+  const { getToken } = useAuth();
   const [selectedCamera, setSelectedCamera] = useState('camera-1');
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>("");
@@ -35,6 +37,109 @@ export function MainContent({ user }: MainContentProps) {
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   const [isBackendConnected, setIsBackendConnected] = useState(false);
 
+  const [webcamRef] = useState<any>(null);
+  const [frameData, setFrameData] = useState<string | null>(null);
+  const pollingInterval = useRef<NodeJS.Timeout | null>(null);
+
+  // Add the improved dataURItoBlob helper function
+  const dataURItoBlob = (dataURI: string): Blob => {
+    try {
+      // Validate input
+      if (!dataURI || typeof dataURI !== 'string') {
+        throw new Error('Invalid data URI');
+      }
+
+      // Split the data URI to get the base64 data
+      const splitDataURI = dataURI.split(',');
+      if (splitDataURI.length !== 2) {
+        throw new Error('Invalid data URI format');
+      }
+
+      const byteString = atob(splitDataURI[1]);
+      
+      // Extract MIME type more safely
+      const mimeMatch = splitDataURI[0].match(/:(.*?);/);
+      if (!mimeMatch) {
+        throw new Error('Could not extract MIME type');
+      }
+      const mimeString = mimeMatch[1];
+      
+      // Convert base64 to byte array
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      
+      return new Blob([ab], { type: mimeString });
+    } catch (error) {
+      console.error('Error converting data URI to Blob:', error);
+      throw error;
+    }
+  };
+
+  // Updated capture frame function
+  const captureFrame = async (videoElement: HTMLVideoElement): Promise<string | null> => {
+    try {
+      if (!videoElement.videoWidth || !videoElement.videoHeight) {
+        throw new Error('Invalid video dimensions');
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = videoElement.videoWidth;
+      canvas.height = videoElement.videoHeight;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Failed to get canvas context');
+      }
+
+      ctx.drawImage(videoElement, 0, 0);
+      return canvas.toDataURL('image/jpeg', 0.8); // Adjust quality as needed
+    } catch (error) {
+      console.error('Frame capture error:', error);
+      return null;
+    }
+  };
+
+  // Updated send frame to server function
+  const sendFrameToServer = useCallback(async (frameBlob: Blob): Promise<any> => {
+    try {
+      // Get Clerk JWT token
+      const token = await getToken();
+      
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      const formData = new FormData();
+      formData.append('file', frameBlob, 'frame.jpg');
+
+      // Log the token being sent (first few characters)
+      console.log('Sending token:', token.substring(0, 10) + '...');
+
+      const response = await fetch('http://localhost:8000/predict_fire', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error sending frame to server:', error);
+      throw error;
+    }
+  }, [getToken]);
+
   // Get camera devices
   useEffect(() => {
     const getDevices = async () => {
@@ -53,70 +158,11 @@ export function MainContent({ user }: MainContentProps) {
     getDevices();
   }, []);
 
-  // Capture frame and send to server
-  const sendFrameToServer = async () => {
-    try {
-      if (!videoRef.current || !isStreaming) {
-        console.log('Video is not playing');
-        return null;
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-
-      ctx.drawImage(videoRef.current, 0, 0);
-
-      const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.8);
-      });
-
-      if (!blob) {
-        console.log('Frame capture failed');
-        return null;
-      }
-
-      const formData = new FormData();
-      formData.append('file', blob, 'frame.jpg');
-
-      console.log('Sending request to server...');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/predict_fire`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${user}`,
-        },
-        body: formData,
-      });
-
-      const data = await response.json();
-      setLastFrameTime(new Date());
-      setDetectionStats(prev => ({
-        ...prev,
-        totalFrames: prev.totalFrames + 1,
-      }));
-      
-      console.log('Server response:', data);
-      return data;
-    } catch (error) {
-      console.error('Server request error:', error);
-      setDetectionStats(prev => ({
-        ...prev,
-        errors: prev.errors + 1,
-      }));
-      return null;
-    }
-  };
-
-  // Polling with TanStack Query
-  const { data: predictionData } = useQuery({
-    queryKey: ['fireDetection'],
-    queryFn: sendFrameToServer,
-    enabled: isPolling && isStreaming,
-    refetchInterval: 5000,
-    retry: false,
+  // Use the query hook at the component level
+  const { data, error, isLoading } = useQuery({
+    queryKey: ['frameAnalysis', frameData],
+    queryFn: () => frameData ? sendFrameToServer(dataURItoBlob(frameData)) : null,
+    enabled: !!frameData, // Only run query when frameData exists
   });
 
   // Initialize audio context
@@ -176,66 +222,109 @@ export function MainContent({ user }: MainContentProps) {
     sourceNodeRef.current = oscillator;
   };
 
-  // Handle fire detection
-  useEffect(() => {
-    if (predictionData?.message === "fire detected") {
-      playAlertSound();
+  // Add polling function
+  const showFireAlert = () => {
+    const flashOverlay = document.createElement('div');
+    flashOverlay.className = 'fixed inset-0 pointer-events-none animate-screenFlash';
+    document.body.appendChild(flashOverlay);
+    
+    const alertElement = document.createElement('div');
+    alertElement.innerHTML = `
+      <div class="flex items-center gap-3">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2c0 6-8 7.5-8 14a8 8 0 0 0 16 0c0-6.5-8-8-8-14z"/>
+        </svg>
+        <div>
+          <div class="font-semibold mb-0.5">Fire Detected</div>
+          <div class="text-sm opacity-90">Fire detected. Please check immediately.</div>
+        </div>
+      </div>
+    `;
+    
+    alertElement.className = `
+      fixed bottom-6 right-6 p-4
+      bg-red-500/90 text-white
+      rounded-xl shadow-lg
+      backdrop-blur-md
+      max-w-[400px] z-[9999]
+      font-sans
+      animate-slideIn animate-pulse animate-flashBorder
+    `;
+
+    document.body.appendChild(alertElement);
+
+    const timeout = setTimeout(() => {
+      if (document.body.contains(alertElement)) {
+        alertElement.classList.remove('animate-slideIn');
+        alertElement.classList.add('animate-slideOut');
+        flashOverlay.remove();
+        setTimeout(() => {
+          document.body.removeChild(alertElement);
+        }, 500);
+      }
+    }, 10000);
+
+    return () => {
+      clearTimeout(timeout);
+      if (document.body.contains(alertElement)) {
+        document.body.removeChild(alertElement);
+      }
+      if (document.body.contains(flashOverlay)) {
+        flashOverlay.remove();
+      }
+    };
+  };
+
+  const startPolling = useCallback(async () => {
+    if (!videoRef.current || !isPolling) return;
+
+    try {
+      const frame = await captureFrame(videoRef.current);
+      if (!frame) return;
+
+      const response = await fetch(frame);
+      const blob = await response.blob();
+
+      const result = await sendFrameToServer(blob);
+      
+      setDetectionStats(prev => ({
+        totalFrames: prev.totalFrames + 1,
+        detections: prev.detections + (result.detections?.length || 0),
+        errors: prev.errors
+      }));
+
+      setLastFrameTime(new Date().toISOString());
+
+      if (result.message === "fire detected") {
+        playAlertSound();
+        showFireAlert();
+      }
+
+    } catch (error) {
+      console.error('Polling error:', error);
       setDetectionStats(prev => ({
         ...prev,
-        detections: prev.detections + 1,
+        errors: prev.errors + 1
       }));
-      
-      const flashOverlay = document.createElement('div');
-      flashOverlay.className = 'fixed inset-0 pointer-events-none animate-screenFlash';
-      document.body.appendChild(flashOverlay);
-      
-      const alertElement = document.createElement('div');
-      alertElement.innerHTML = `
-        <div class="flex items-center gap-3">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2c0 6-8 7.5-8 14a8 8 0 0 0 16 0c0-6.5-8-8-8-14z"/>
-          </svg>
-          <div>
-            <div class="font-semibold mb-0.5">Fire Detected</div>
-            <div class="text-sm opacity-90">Fire detected. Please check immediately.</div>
-          </div>
-        </div>
-      `;
-      
-      alertElement.className = `
-        fixed bottom-6 right-6 p-4
-        bg-red-500/90 text-white
-        rounded-xl shadow-lg
-        backdrop-blur-md
-        max-w-[400px] z-[9999]
-        font-sans
-        animate-slideIn animate-pulse animate-flashBorder
-      `;
-
-      document.body.appendChild(alertElement);
-
-      const timeout = setTimeout(() => {
-        if (document.body.contains(alertElement)) {
-          alertElement.classList.remove('animate-slideIn');
-          alertElement.classList.add('animate-slideOut');
-          flashOverlay.remove();
-          setTimeout(() => {
-            document.body.removeChild(alertElement);
-          }, 500);
-        }
-      }, 10000);
-
-      return () => {
-        clearTimeout(timeout);
-        if (document.body.contains(alertElement)) {
-          document.body.removeChild(alertElement);
-        }
-        if (document.body.contains(flashOverlay)) {
-          flashOverlay.remove();
-        }
-      };
     }
-  }, [predictionData]);
+  }, [isPolling, sendFrameToServer, playAlertSound]);
+
+  // Manage polling interval
+  useEffect(() => {
+    if (isPolling && !pollingInterval.current) {
+      pollingInterval.current = setInterval(startPolling, 1000); // Poll every second
+    } else if (!isPolling && pollingInterval.current) {
+      clearInterval(pollingInterval.current);
+      pollingInterval.current = null;
+    }
+
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+        pollingInterval.current = null;
+      }
+    };
+  }, [isPolling, startPolling]);
 
   const startWebcam = async () => {
     try {
@@ -254,7 +343,7 @@ export function MainContent({ user }: MainContentProps) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
         setIsStreaming(true);
-        setIsPolling(true);
+        setIsPolling(true); // Start polling when camera starts
         toast.success('Camera started successfully');
       }
     } catch (error) {
@@ -265,12 +354,12 @@ export function MainContent({ user }: MainContentProps) {
 
   const stopWebcam = () => {
     stopAlertSound();
+    setIsPolling(false); // Stop polling when camera stops
     if (videoRef.current && videoRef.current.srcObject) {
       const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
       tracks.forEach(track => track.stop());
       videoRef.current.srcObject = null;
       setIsStreaming(false);
-      setIsPolling(false);
       setDetectionStats({
         totalFrames: 0,
         detections: 0,
@@ -282,29 +371,28 @@ export function MainContent({ user }: MainContentProps) {
 
   const checkBackendConnection = async () => {
     try {
-      console.log('Checking backend connection at:', process.env.NEXT_PUBLIC_BACKEND_URL);
       setIsCheckingConnection(true);
       
+      const token = await getToken();
       const url = 'http://localhost:8000/health';
-      console.log('Making request to:', url);
       
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${user}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Origin': window.location.origin,
+          ...(token && { 'Authorization': `Bearer ${token}` })
         },
+        mode: 'cors'
       });
       
-      console.log('Response status:', response.status);
       setIsBackendConnected(response.ok);
-      
-      if (!response.ok) {
-        throw new Error('Backend health check failed');
-      }
+      return response.ok;
     } catch (error) {
       console.error('Backend connection error:', error);
       setIsBackendConnected(false);
-      toast.error('Failed to connect to backend');
+      return false;
     } finally {
       setIsCheckingConnection(false);
     }
@@ -371,4 +459,7 @@ export function MainContent({ user }: MainContentProps) {
       <Analytics />
     </div>
   );
-}
+};
+
+export default MainContent;
+
